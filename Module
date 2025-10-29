@@ -45,52 +45,52 @@ local Settings = {
     TracerPosition = "Bottom",
 }
 
-function Drawing(Class: string, Properties: { [string]: any }): Drawing
+function CreateDrawing(Class: string, Properties: { [string]: any })
     local New = Drawing.new(Class)
     for Property, Value in pairs(Properties) do
         New[Property] = Value
     end
-
     return New
 end
 
+
 function Write(Player)
     local Render = {
-        Tracer = Drawing("Line", {
+        Tracer = CreateDrawing("Line", {
             Thickness = Settings.TracerThickness,
             Color = Settings.TracerColor,
             Transparency = 0.5
         }),
-        BoxOutline = Drawing("Square", {
+        BoxOutline = CreateDrawing("Square", {
             Color = Settings.BoxOutlineColor,
             Thickness = 3,
             Filled = false
         }),
-        Box = Drawing("Square", {
+        Box = CreateDrawing("Square", {
             Color = Settings.BoxColor,
             Thickness = 1,
             Filled = false
         }),
-        Name = Drawing("Text", {
+        Name = CreateDrawing("Text", {
             Color = Settings.NameColor,
             Outline = true,
             Center = true,
             Size = 13
         }),
-        HealthOutLine = Drawing("Line", {
+        HealthOutLine = CreateDrawing("Line", {
             Thickness = 3,
             Color = Settings.HealthOutlineColor
         }),
-        Health = Drawing("Line", {
+        Health = CreateDrawing("Line", {
             Thickness = 1
         }),
-        Distance = Drawing("Text", {
+        Distance = CreateDrawing("Text", {
             Color = Color3.new(1, 1, 1),
             Size = 12,
             Outline = true,
             Center = true
         }),
-        Tracer = Drawing("Line", {
+        Tracer = CreateDrawing("Line", {
             Thickness = Settings.TracerThickness,
             Color = Settings.TracerColor,
             Transparency = 1
@@ -181,7 +181,7 @@ function Update()
     
                             if #Render.BoxLines == 0 then
                                 for Index = 1, 16 do
-                                    local BoxLines = Drawing("Line", {
+                                    local BoxLines = CreateDrawing("Line", {
                                         Thickness = 1,
                                         Color = Settings.BoxColor,
                                         Transparency = 1
@@ -291,7 +291,7 @@ function Update()
                                 local Parent, Child = Bones[1], Bones[2]
                                 
                                 if Player.Character and Player.Character[Parent] and Player.Character[Child] then
-                                    local SkeletonLines = Drawing("Line", {
+                                    local SkeletonLines = CreateDrawing("Line", {
                                         Thickness = 1,
                                         Color = Settings.SkeletonsColor,
                                         Transparency = 1
