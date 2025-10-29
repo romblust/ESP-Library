@@ -46,12 +46,12 @@ local Settings = {
 }
 
 function Drawing(Class: string, Properties: { [string]: any }): Drawing
-    local Drawing = Drawing.new(Class)
+    local New = Drawing.new(Class)
     for Property, Value in pairs(Properties) do
-        Drawing[Property] = Value
+        New[Property] = Value
     end
 
-    return Drawing
+    return New
 end
 
 function Write(Player)
