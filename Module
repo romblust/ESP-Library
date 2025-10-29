@@ -1,0 +1,420 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Cache = {}
+
+local Body_Part = {
+    {"Head", "UpperTorso"},
+    {"UpperTorso", "RightUpperArm"},
+    {"RightUpperArm", "RightLowerArm"},
+    {"RightLowerArm", "RightHand"},
+    {"UpperTorso", "LeftUpperArm"},
+    {"LeftUpperArm", "LeftLowerArm"},
+    {"LeftLowerArm", "LeftHand"},
+    {"UpperTorso", "LowerTorso"},
+    {"LowerTorso", "LeftUpperLeg"},
+    {"LeftUpperLeg", "LeftLowerLeg"},
+    {"LeftLowerLeg", "LeftFoot"},
+    {"LowerTorso", "RightUpperLeg"},
+    {"RightUpperLeg", "RightLowerLeg"},
+    {"RightLowerLeg", "RightFoot"}
+}
+
+local Settings = {
+    BoxOutlineColor = Color3.new(0, 0, 0),
+    BoxColor = Color3.new(1, 1, 1),
+    NameColor = Color3.new(1, 1, 1),
+    HealthOutlineColor = Color3.new(0, 0, 0),
+    HealthHighColor = Color3.new(0, 1, 0),
+    HealthLowColor = Color3.new(1, 0, 0),
+    Teamcheck = false,
+    WallCheck = false,
+    Enabled = false,
+    ShowBox = false,
+    BoxType = "2D",
+    ShowName = false,
+	NameType = "User",
+    ShowHealth = false,
+    ShowDistance = false,
+    ShowSkeletons = false,
+    ShowTracer = false,
+    TracerColor = Color3.new(1, 1, 1), 
+    TracerThickness = 2,
+    SkeletonsColor = Color3.new(1, 1, 1),
+    TracerPosition = "Bottom",
+}
+
+function Drawing(Class: string, Properties: { [string]: any }): Drawing
+    local Drawing = Drawing.new(Class)
+    for Property, Value in pairs(Properties) do
+        Drawing[Property] = Value
+    end
+
+    return Drawing
+end
+
+function Write(Player)
+    local Render = {
+        Tracer = Drawing("Line", {
+            Thickness = Settings.TracerThickness,
+            Color = Settings.TracerColor,
+            Transparency = 0.5
+        }),
+        BoxOutline = Drawing("Square", {
+            Color = Settings.BoxOutlineColor,
+            Thickness = 3,
+            Filled = false
+        }),
+        Box = Drawing("Square", {
+            Color = Settings.BoxColor,
+            Thickness = 1,
+            Filled = false
+        }),
+        Name = Drawing("Text", {
+            Color = Settings.NameColor,
+            Outline = true,
+            Center = true,
+            Size = 13
+        }),
+        HealthOutLine = Drawing("Line", {
+            Thickness = 3,
+            Color = Settings.HealthOutlineColor
+        }),
+        Health = Drawing("Line", {
+            Thickness = 1
+        }),
+        Distance = Drawing("Text", {
+            Color = Color3.new(1, 1, 1),
+            Size = 12,
+            Outline = true,
+            Center = true
+        }),
+        Tracer = Drawing("Line", {
+            Thickness = Settings.TracerThickness,
+            Color = Settings.TracerColor,
+            Transparency = 1
+        }),
+        BoxLines = {},
+    }
+
+    Cache[Player] = Render
+    Cache[Player]["Skeleton"] = {}
+end
+
+function Occluded(Player)
+    if not (Player or Player.Character) then
+        return false
+    end
+
+    if not Player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+
+    local HitResult, Position =
+        Workspace:FindPartOnRayWithIgnoreList(
+        Ray.new(
+            Camera.CFrame.Position,
+            (Player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Unit *
+                (Player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+        ),
+        {LocalPlayer.Character, character}
+    )
+    
+    return HitResult and HitResult:IsA("Part")
+end
+
+function UnWrite(Player)
+    local Render = Cache[Player]
+    if not Render then
+		return
+	end
+
+    for Index, Drawing in pairs(Render) do
+        Drawing:Remove()
+    end
+
+    Cache[Player] = nil
+end
+
+function Update()
+    for Player, Render in pairs(Cache) do
+        if Player.Character and (not Settings.Teamcheck or (Player.Team and Player.Team ~= LocalPlayer.Team)) then
+            if Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character:FindFirstChild("Head") and Player.Character:FindFirstChild("Humanoid") and not IsOccluded and Settings.Enabled then
+                local Position, IsInViewport = Camera:WorldToViewportPoint(Player.Character.HumanoidRootPart.Position)
+                if IsInViewport then
+                    local Root2D = Camera:WorldToViewportPoint(Player.Character.HumanoidRootPart.Position)
+                    local RootSize = (Camera:WorldToViewportPoint(Player.Character.HumanoidRootPart.Position - Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(Player.Character.HumanoidRootPart.Position + Vector3.new(0, 2.6, 0)).Y) / 2
+                    local BoxSize = Vector2.new(math.floor(RootSize * 1.8), math.floor(RootSize * 1.9))
+                    local BoxPosition = Vector2.new(math.floor(Root2D.X - RootSize * 1.8 / 2), math.floor(Root2D.Y - RootSize * 1.6 / 2))
+
+                    if Settings.ShowName and Settings.Enabled then
+                        if Settings.NameType == "User" then
+                            Render.Name.Text = string.lower(Player.Name)
+                        elseif Settings.NameType == "Display" then
+                            Render.Name.Text = string.lower(Player.DisplayName)
+                        end
+                    
+                        Render.Name.Visible = true
+                        Render.Name.Position = Vector2.new(BoxSize.X / 2 + BoxPosition.X, BoxPosition.Y - 16)
+                        Render.Name.Color = Settings.NameColor
+                    else
+                        Render.Name.Visible = false
+                    end
+
+                    if Settings.ShowBox and Settings.Enabled then
+                        if Settings.BoxType == "2D" then
+                            Render.BoxOutline.Size = BoxSize
+                            Render.BoxOutline.Position = BoxPosition
+                            Render.Box.Size = BoxSize
+                            Render.Box.Position = BoxPosition
+                            Render.Box.Color = Settings.BoxColor
+                            Render.Box.Visible = true
+                            Render.BoxOutline.Visible = true
+                            for Index, Lines in pairs(Render.BoxLines) do
+                                Lines:Remove()
+                            end
+                        elseif Settings.BoxType == "3D" then
+                            local LineWidth = (BoxSize.X / 5)
+                            local LineHeight = (BoxSize.Y / 6)
+                            local LineOffset = 1
+    
+                            if #Render.BoxLines == 0 then
+                                for Index = 1, 16 do
+                                    local BoxLines = Drawing("Line", {
+                                        Thickness = 1,
+                                        Color = Settings.BoxColor,
+                                        Transparency = 1
+                                    })
+									
+                                    Render.BoxLines[#Render.BoxLines + 1] = BoxLines
+                                end
+                            end
+    
+                            local BoxLines = Render.BoxLines
+    
+                            BoxLines[1].From = Vector2.new(BoxPosition.X - LineOffset, BoxPosition.Y - LineOffset)
+                            BoxLines[1].To = Vector2.new(BoxPosition.X + LineWidth, BoxPosition.Y - LineOffset)
+    
+                            BoxLines[2].From = Vector2.new(BoxPosition.X - LineOffset, BoxPosition.Y - LineOffset)
+                            BoxLines[2].To = Vector2.new(BoxPosition.X - LineOffset, BoxPosition.Y + LineHeight)
+    
+                            BoxLines[3].From = Vector2.new(BoxPosition.X + BoxSize.X - LineWidth, BoxPosition.Y - LineOffset)
+                            BoxLines[3].To = Vector2.new(BoxPosition.X + BoxSize.X + LineOffset, BoxPosition.Y - LineOffset)
+    
+                            BoxLines[4].From = Vector2.new(BoxPosition.X + BoxSize.X + LineOffset, BoxPosition.Y - LineOffset)
+                            BoxLines[4].To = Vector2.new(BoxPosition.X + BoxSize.X + LineOffset, BoxPosition.Y + LineHeight)
+    
+                            BoxLines[5].From = Vector2.new(BoxPosition.X - LineOffset, BoxPosition.Y + BoxSize.Y - LineHeight)
+                            BoxLines[5].To = Vector2.new(BoxPosition.X - LineOffset, BoxPosition.Y + BoxSize.Y + LineOffset)
+    
+                            BoxLines[6].From = Vector2.new(BoxPosition.X - LineOffset, BoxPosition.Y + BoxSize.Y + LineOffset)
+                            BoxLines[6].To = Vector2.new(BoxPosition.X + LineWidth, BoxPosition.Y + BoxSize.Y + LineOffset)
+    
+                            BoxLines[7].From = Vector2.new(BoxPosition.X + BoxSize.X - LineWidth, BoxPosition.Y + BoxSize.Y + LineOffset)
+                            BoxLines[7].To = Vector2.new(BoxPosition.X + BoxSize.X + LineOffset, BoxPosition.Y + BoxSize.Y + LineOffset)
+    
+                            BoxLines[8].From = Vector2.new(BoxPosition.X + BoxSize.X + LineOffset, BoxPosition.Y + BoxSize.Y - LineHeight)
+                            BoxLines[8].To = Vector2.new(BoxPosition.X + BoxSize.X + LineOffset, BoxPosition.Y + BoxSize.Y + LineOffset)
+    
+                            for Index = 9, 16 do
+                                BoxLines[Index].Thickness = 2
+                                BoxLines[Index].Color = Settings.BoxOutlineColor
+                                BoxLines[Index].Transparency = 1
+                            end
+    
+                            BoxLines[9].From = Vector2.new(BoxPosition.X, BoxPosition.Y)
+                            BoxLines[9].To = Vector2.new(BoxPosition.X, BoxPosition.Y + LineHeight)
+    
+                            BoxLines[10].From = Vector2.new(BoxPosition.X, BoxPosition.Y)
+                            BoxLines[10].To = Vector2.new(BoxPosition.X + LineWidth, BoxPosition.Y)
+    
+                            BoxLines[11].From = Vector2.new(BoxPosition.X + BoxSize.X - LineWidth, BoxPosition.Y)
+                            BoxLines[11].To = Vector2.new(BoxPosition.X + BoxSize.X, BoxPosition.Y)
+    
+                            BoxLines[12].From = Vector2.new(BoxPosition.X + BoxSize.X, BoxPosition.Y)
+                            BoxLines[12].To = Vector2.new(BoxPosition.X + BoxSize.X, BoxPosition.Y + LineHeight)
+    
+                            BoxLines[13].From = Vector2.new(BoxPosition.X, BoxPosition.Y + BoxSize.Y - LineHeight)
+                            BoxLines[13].To = Vector2.new(BoxPosition.X, BoxPosition.Y + BoxSize.Y)
+    
+                            BoxLines[14].From = Vector2.new(BoxPosition.X, BoxPosition.Y + BoxSize.Y)
+                            BoxLines[14].To = Vector2.new(BoxPosition.X + LineWidth, BoxPosition.Y + BoxSize.Y)
+    
+                            BoxLines[15].From = Vector2.new(BoxPosition.X + BoxSize.X - LineWidth, BoxPosition.Y + BoxSize.Y)
+                            BoxLines[15].To = Vector2.new(BoxPosition.X + BoxSize.X, BoxPosition.Y + BoxSize.Y)
+    
+                            BoxLines[16].From = Vector2.new(BoxPosition.X + BoxSize.X, BoxPosition.Y + BoxSize.Y - LineHeight)
+                            BoxLines[16].To = Vector2.new(BoxPosition.X + BoxSize.X, BoxPosition.Y + BoxSize.Y)
+    
+                            for Index, Lines in pairs(BoxLines) do
+                                Lines.Visible = true
+                            end
+
+                            Render.Box.Visible = false
+                            Render.BoxOutline.Visible = false
+                        end
+                    else
+                        Render.Box.Visible = false
+                        Render.BoxOutline.Visible = false
+                        for Index, Lines in pairs(Render.BoxLines) do
+                            Lines:Remove()
+                        end
+
+                        Render.BoxLines = {}
+                    end
+
+                    if Settings.ShowHealth and Settings.Enabled then
+                        Render.HealthOutLine.Visible = true
+                        Render.Health.Visible = true
+                        Render.HealthOutLine.From = Vector2.new(BoxPosition.X - 6, BoxPosition.Y + BoxSize.Y)
+                        Render.HealthOutLine.To = Vector2.new(Render.HealthOutLine.From.X, Render.HealthOutLine.From.Y - BoxSize.Y)
+                        Render.Health.From = Vector2.new((BoxPosition.X - 5), BoxPosition.Y + BoxSize.Y)
+                        Render.Health.To = Vector2.new(Render.Health.From.X, Render.Health.From.Y - (Player.Character.Humanoid.Health / Player.Character.Humanoid.MaxHealth) * BoxSize.Y)
+                        Render.Health.Color = Settings.HealthLowColor:Lerp(Settings.HealthHighColor, Player.Character.Humanoid.Health / Player.Character.Humanoid.MaxHealth)
+                    else
+                        Render.HealthOutLine.Visible = false
+                        Render.Health.Visible = false
+                    end
+
+                    if Settings.ShowDistance and Settings.Enabled then
+                        Render.Distance.Text = string.format("%.1f studs", (Camera.CFrame.Position - Player.Character.HumanoidRootPart.Position).Magnitude)
+                        Render.Distance.Position = Vector2.new(BoxPosition.X + BoxSize.X / 2, BoxPosition.Y + BoxSize.Y + 5)
+                        Render.Distance.Visible = true
+                    else
+                        Render.Distance.Visible = false
+                    end
+
+                    if Settings.ShowSkeletons and Settings.Enabled then
+                        if #Render["Skeleton"] == 0 then
+                            for Index, Bones in pairs(Body_Part) do
+                                local Parent, Child = Bones[1], Bones[2]
+                                
+                                if Player.Character and Player.Character[Parent] and Player.Character[Child] then
+                                    local SkeletonLines = Drawing("Line", {
+                                        Thickness = 1,
+                                        Color = Settings.SkeletonsColor,
+                                        Transparency = 1
+                                    })
+                                    Render["Skeleton"][#Render["Skeleton"] + 1] = {SkeletonLines, Parent, Child}
+                                end
+                            end
+                        end
+                    
+                        for Index, Data in pairs(Render["Skeleton"]) do
+                            local SkeletonLines = Data[1]
+                            local Parent, Child = Data[2], Data[3]
+                    
+                            if Player.Character and Player.Character[Parent] and Player.Character[Child] then
+                                local ViewPortParent = Camera:WorldToViewportPoint(Player.Character[Parent].Position)
+                                local ViewPortChild = Camera:WorldToViewportPoint(Player.Character[Child].Position)
+                    
+                                SkeletonLines.From = Vector2.new(ViewPortParent.X, ViewPortParent.Y)
+                                SkeletonLines.To = Vector2.new(ViewPortChild.X, ViewPortChild.Y)
+                                SkeletonLines.Color = Settings.SkeletonsColor
+                                SkeletonLines.Visible = true
+                            else
+                                SkeletonLines:Remove()
+                            end
+                        end
+                    else
+                        for Index, Data in pairs(Render["Skeleton"]) do
+                            local SkeletonLines = Data[1]
+                            SkeletonLines:Remove()
+                        end
+						
+                        Render["Skeleton"] = {}
+                    end                    
+
+                    if Settings.ShowTracer and Settings.Enabled then
+                        local TracerOffset
+                        if Settings.TracerPosition == "Top" then
+                            TracerOffset = 0
+                        elseif Settings.TracerPosition == "Middle" then
+                            TracerOffset = Camera.ViewportSize.Y / 2
+                        else
+                            TracerOffset = Camera.ViewportSize.Y
+                        end
+
+                        if Settings.Teamcheck and Player.TeamColor == LocalPlayer.TeamColor then
+                            Render.Tracer.Visible = false
+                        else
+                            Render.Tracer.Visible = true
+                            Render.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, TracerOffset)
+                            Render.Tracer.To = Vector2.new(Root2D.X, Root2D.Y)            
+                        end
+                    else
+                        Render.Tracer.Visible = false
+                    end
+                else
+                    for Index, Drawing in pairs(Render) do
+                        Drawing.Visible = false
+                    end
+
+                    for Index, Data in pairs(Render["Skeleton"]) do
+                        local SkeletonLines = Data[1]
+                        SkeletonLines:Remove()
+                    end
+
+                    Render["Skeleton"] = {}
+                    for Index, Lines in pairs(Render.BoxLines) do
+                        Lines:Remove()
+                    end
+
+                    Render.BoxLines = {}
+                end
+            else
+                for Index, Drawing in pairs(Render) do
+                    Drawing.Visible = false
+                end
+
+                for Index, Data in pairs(Render["Skeleton"]) do
+                    local SkeletonLines = Data[1]
+                    SkeletonLines:Remove()
+                end
+
+                Render["Skeleton"] = {}
+                for Index, Lines in pairs(Render.BoxLines) do
+                    Lines:Remove()
+                end
+
+                Render.BoxLines = {}
+            end
+        else
+            for Index, Drawing in pairs(Render) do
+                Drawing.Visible = false
+            end
+
+            for Index, Data in pairs(Render["Skeleton"]) do
+                local SkeletonLines = Data[1]
+                SkeletonLines:Remove()
+            end
+
+            Render["Skeleton"] = {}
+            for Index, Lines in pairs(Render.BoxLines) do
+                Lines:Remove()
+            end
+
+            Render.BoxLines = {}
+        end
+    end
+end
+
+for Index, Player in pairs(Players:GetPlayers()) do
+    if Player ~= LocalPlayer then
+        Write(Player)
+    end
+end
+
+Players.PlayerAdded:Connect(function(Player)
+    if Player ~= LocalPlayer then
+        Write(Player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(Player)
+    UnWrite(Player)
+end)
+
+RunService.RenderStepped:Connect(Update)
+return Settings
